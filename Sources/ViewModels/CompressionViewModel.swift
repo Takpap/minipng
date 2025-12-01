@@ -128,77 +128,50 @@ class CompressionViewModel: ObservableObject {
         guard !isCompressing else { return }
         isCompressing = true
         
+        // 收集需要压缩的图片信息
+        var pendingTasks: [(index: Int, item: ImageItem, outputURL: URL)] = []
+        for i in images.indices {
+            if case .completed = images[i].status { continue }
+            images[i].status = .compressing
+            let item = images[i]
+            let outputURL = getOutputURL(for: item)
+            pendingTasks.append((i, item, outputURL))
+        }
+        
+        let currentQuality = quality
+        let service = compressionService
+        
         Task {
-            // 收集需要压缩的图片信息
-            var pendingTasks: [(index: Int, item: ImageItem, outputURL: URL)] = []
-            for i in images.indices {
-                if case .completed = images[i].status { continue }
-                images[i].status = .pending
-                let item = images[i]
-                let outputURL = getOutputURL(for: item)
-                pendingTasks.append((i, item, outputURL))
-            }
-            
-            let currentQuality = quality
-            
             // 并发压缩，限制并发数
-            await withTaskGroup(of: (Int, Result<(Int64, URL), Error>).self) { group in
-                var taskIterator = pendingTasks.makeIterator()
-                var runningCount = 0
-                
-                // 辅助函数：添加任务
-                func addNextTask() -> Bool {
-                    guard let task = taskIterator.next() else { return false }
+            let results = await withTaskGroup(of: (Int, Result<(Int64, URL), Error>).self, returning: [(Int, Result<(Int64, URL), Error>)].self) { group in
+                for task in pendingTasks {
                     let (index, item, outputURL) = task
-                    group.addTask { [compressionService] in
+                    group.addTask {
                         do {
-                            let size = try await compressionService.compress(item: item, output: outputURL, quality: currentQuality)
+                            let size = try await service.compress(item: item, output: outputURL, quality: currentQuality)
                             return (index, .success((size, outputURL)))
                         } catch {
                             return (index, .failure(error))
                         }
                     }
-                    return true
                 }
                 
-                // 启动初始批次
-                while runningCount < maxConcurrency, addNextTask() {
-                    runningCount += 1
+                var results: [(Int, Result<(Int64, URL), Error>)] = []
+                for await result in group {
+                    results.append(result)
                 }
-                
-                // 标记初始批次为压缩中
-                for i in 0..<min(maxConcurrency, pendingTasks.count) {
-                    images[pendingTasks[i].index].status = .compressing
-                }
-                
-                var nextToStart = maxConcurrency
-                
-                // 处理结果并启动新任务
-                for await (index, result) in group {
-                    switch result {
-                    case .success(let (size, url)):
-                        images[index].compressedSize = size
-                        images[index].outputURL = url
-                        images[index].status = .completed
-                    case .failure(let error):
-                        images[index].status = .failed(error.localizedDescription)
-                    }
-                    
-                    // 启动下一个任务
-                    if nextToStart < pendingTasks.count {
-                        let nextTask = pendingTasks[nextToStart]
-                        images[nextTask.index].status = .compressing
-                        let (nextIndex, nextItem, nextOutputURL) = nextTask
-                        group.addTask { [compressionService] in
-                            do {
-                                let size = try await compressionService.compress(item: nextItem, output: nextOutputURL, quality: currentQuality)
-                                return (nextIndex, .success((size, nextOutputURL)))
-                            } catch {
-                                return (nextIndex, .failure(error))
-                            }
-                        }
-                        nextToStart += 1
-                    }
+                return results
+            }
+            
+            // 在 MainActor 上更新 UI
+            for (index, result) in results {
+                switch result {
+                case .success(let (size, url)):
+                    images[index].compressedSize = size
+                    images[index].outputURL = url
+                    images[index].status = .completed
+                case .failure(let error):
+                    images[index].status = .failed(error.localizedDescription)
                 }
             }
             
