@@ -72,20 +72,19 @@ actor CompressionService {
     /// 查找工具路径 - 优先从 bundle，其次系统路径
     private static func findTool(_ name: String) -> URL? {
         // 1. 从 bundle Resources/bin 目录查找
-        if let bundlePath = Bundle.main.url(forResource: "bin/\(name)", withExtension: nil) {
-            return bundlePath
+        if let resourceURL = Bundle.main.resourceURL {
+            let bundlePath = resourceURL.appendingPathComponent("bin/\(name)")
+            if FileManager.default.fileExists(atPath: bundlePath.path) {
+                return bundlePath
+            }
         }
         
-        // 2. 从 bundle Resources 目录查找
-        if let bundlePath = Bundle.main.url(forResource: name, withExtension: nil, subdirectory: "Resources/bin") {
-            return bundlePath
-        }
-        
-        // 3. 系统路径查找
+        // 2. 系统路径查找
         let systemPaths = [
             "/opt/homebrew/bin/\(name)",
             "/opt/homebrew/opt/mozjpeg/bin/\(name)",
             "/usr/local/bin/\(name)",
+            "/usr/local/opt/mozjpeg/bin/\(name)",
             "/usr/bin/\(name)"
         ]
         
