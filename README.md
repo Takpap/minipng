@@ -1,65 +1,65 @@
 # MiniPNG
 
-高效的图片压缩工具，支持 PNG、JPEG、WebP、GIF 格式。
+An efficient image compression tool supporting PNG, JPEG, WebP, and GIF formats.
 
 ![MiniPNG Screenshot](screenshot.png)
 
-## 功能特性
+## Features
 
-- 🖼️ **多格式支持** - PNG、JPEG、WebP、GIF
-- 🚀 **高压缩率** - 使用业界顶级开源压缩引擎
-- ⚡ **并发压缩** - 多线程批量处理
-- 🎯 **拖拽操作** - 拖拽文件或文件夹即可压缩
-- 🔍 **对比预览** - 压缩前后效果对比
-- 💾 **灵活输出** - 支持替换源文件或生成新文件
+- 🖼️ **Multi-format Support** - PNG, JPEG, WebP, GIF
+- 🚀 **High Compression Ratio** - Powered by industry-leading open-source compression engines
+- ⚡ **Concurrent Compression** - Multi-threaded batch processing
+- 🎯 **Drag & Drop** - Simply drag files or folders to compress
+- 🔍 **Preview Comparison** - Compare before and after compression
+- 💾 **Flexible Output** - Replace source files or generate new ones
 
-## 压缩引擎
+## Compression Engines
 
-| 格式 | 引擎 | 说明 |
-|------|------|------|
-| PNG | pngquant + oxipng | 有损量化 + 无损优化 |
-| JPEG | mozjpeg | Mozilla 改进的 JPEG 编码器 |
-| WebP | cwebp | Google WebP 编码器 |
-| GIF | gifsicle | GIF 优化工具 |
+| Format | Engine | Description |
+|--------|--------|-------------|
+| PNG | pngquant + oxipng | Lossy quantization + lossless optimization |
+| JPEG | mozjpeg | Mozilla's improved JPEG encoder |
+| WebP | cwebp | Google WebP encoder |
+| GIF | gifsicle | GIF optimization tool |
 
-## 安装
+## Installation
 
-### 下载安装
-从 [Releases](../../releases) 页面下载对应架构的 DMG 文件：
+### Download
+Download the DMG file for your architecture from the [Releases](../../releases) page:
 - `MiniPNG-x.x.x-arm64.dmg` - Apple Silicon (M1/M2/M3)
 - `MiniPNG-x.x.x-x86_64.dmg` - Intel
 
-### 从源码构建
+### Build from Source
 ```bash
-# 安装依赖
+# Install dependencies
 brew install pngquant mozjpeg gifsicle webp oxipng
 
-# 构建
+# Build
 swift build -c release
 
-# 打包
+# Package
 ./scripts/build-app.sh
 ```
 
-## 使用方法
+## Usage
 
-1. 拖拽图片或文件夹到窗口
-2. 选择压缩质量（高压缩 / 均衡 / 高质量）
-3. 点击「开始压缩」或按 `⌘⏎`
+1. Drag images or folders to the window
+2. Select compression quality (High Compression / Balanced / High Quality)
+3. Click "Start Compression" or press `⌘⏎`
 
-### 快捷键
+### Keyboard Shortcuts
 
-| 快捷键 | 功能 |
-|--------|------|
-| `⌘O` | 打开文件 |
-| `⌘⏎` | 开始压缩 |
-| `⌘⌫` | 清空列表 |
+| Shortcut | Action |
+|----------|--------|
+| `⌘O` | Open files |
+| `⌘⏎` | Start compression |
+| `⌘⌫` | Clear list |
 
-## 系统要求
+## System Requirements
 
-- macOS 13.0 或更高版本
-- Apple Silicon 或 Intel 处理器
+- macOS 13.0 or later
+- Apple Silicon or Intel processor
 
-## 开源协议
+## License
 
 MIT License
