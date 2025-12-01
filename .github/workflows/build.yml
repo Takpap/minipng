@@ -121,9 +121,8 @@ jobs:
           # Create PkgInfo
           echo -n "APPL????" > "$APP_DIR/Contents/PkgInfo"
           
-          # Generate icon
-          swift scripts/generate-icon.swift 2>/dev/null || true
-          iconutil -c icns /tmp/MiniPNG.iconset -o "$APP_DIR/Contents/Resources/AppIcon.icns" 2>/dev/null || true
+          # Copy icon
+          cp Sources/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
           
           # Set permissions
           chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
