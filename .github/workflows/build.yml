@@ -1,0 +1,176 @@
+name: Build MiniPNG
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: false
+        default: '1.0.0'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14
+          - arch: x86_64
+            runner: macos-13
+
+    runs-on: ${{ matrix.runner }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '5.9'
+
+      - name: Install Dependencies
+        run: |
+          brew install pngquant mozjpeg gifsicle webp oxipng
+
+      - name: Get Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=${{ github.event.inputs.version || '1.0.0' }}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Release
+        run: |
+          swift build -c release
+
+      - name: Create App Bundle
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          APP_NAME="MiniPNG"
+          APP_DIR="dist/$APP_NAME.app"
+          
+          # Create bundle structure
+          mkdir -p "$APP_DIR/Contents/MacOS"
+          mkdir -p "$APP_DIR/Contents/Resources/bin"
+          
+          # Copy executable
+          cp ".build/release/$APP_NAME" "$APP_DIR/Contents/MacOS/"
+          
+          # Copy compression tools
+          cp /opt/homebrew/bin/pngquant "$APP_DIR/Contents/Resources/bin/" 2>/dev/null || \
+          cp /usr/local/bin/pngquant "$APP_DIR/Contents/Resources/bin/" || true
+          
+          cp /opt/homebrew/opt/mozjpeg/bin/cjpeg "$APP_DIR/Contents/Resources/bin/" 2>/dev/null || \
+          cp /usr/local/opt/mozjpeg/bin/cjpeg "$APP_DIR/Contents/Resources/bin/" || true
+          
+          cp /opt/homebrew/opt/mozjpeg/bin/djpeg "$APP_DIR/Contents/Resources/bin/" 2>/dev/null || \
+          cp /usr/local/opt/mozjpeg/bin/djpeg "$APP_DIR/Contents/Resources/bin/" || true
+          
+          cp /opt/homebrew/bin/gifsicle "$APP_DIR/Contents/Resources/bin/" 2>/dev/null || \
+          cp /usr/local/bin/gifsicle "$APP_DIR/Contents/Resources/bin/" || true
+          
+          cp /opt/homebrew/bin/cwebp "$APP_DIR/Contents/Resources/bin/" 2>/dev/null || \
+          cp /usr/local/bin/cwebp "$APP_DIR/Contents/Resources/bin/" || true
+          
+          cp /opt/homebrew/bin/oxipng "$APP_DIR/Contents/Resources/bin/" 2>/dev/null || \
+          cp /usr/local/bin/oxipng "$APP_DIR/Contents/Resources/bin/" || true
+          
+          # Create Info.plist
+          cat > "$APP_DIR/Contents/Info.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>zh_CN</string>
+              <key>CFBundleExecutable</key>
+              <string>$APP_NAME</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.minipng.app</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleName</key>
+              <string>$APP_NAME</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>$VERSION</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>13.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
+              <key>NSPrincipalClass</key>
+              <string>NSApplication</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # Create PkgInfo
+          echo -n "APPL????" > "$APP_DIR/Contents/PkgInfo"
+          
+          # Generate icon
+          swift scripts/generate-icon.swift 2>/dev/null || true
+          iconutil -c icns /tmp/MiniPNG.iconset -o "$APP_DIR/Contents/Resources/AppIcon.icns" 2>/dev/null || true
+          
+          # Set permissions
+          chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
+          chmod +x "$APP_DIR/Contents/Resources/bin/"* 2>/dev/null || true
+
+      - name: Create DMG
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          DMG_NAME="MiniPNG-${VERSION}-${ARCH}.dmg"
+          
+          # Create temp dir for DMG contents
+          TMP_DIR=$(mktemp -d)
+          cp -r dist/MiniPNG.app "$TMP_DIR/"
+          ln -s /Applications "$TMP_DIR/Applications"
+          
+          # Create DMG
+          hdiutil create -volname "MiniPNG" \
+            -srcfolder "$TMP_DIR" \
+            -ov -format UDZO \
+            "dist/$DMG_NAME"
+          
+          rm -rf "$TMP_DIR"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiniPNG-${{ steps.version.outputs.version }}-${{ matrix.arch }}
+          path: dist/*.dmg
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*.dmg
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
