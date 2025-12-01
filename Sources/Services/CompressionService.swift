@@ -160,26 +160,20 @@ actor CompressionService {
     /// 压缩 JPEG (mozjpeg: djpeg 解码 -> cjpeg 重新编码)
     func compressJPEG(input: URL, output: URL, quality: Quality) async throws -> Int64 {
         guard let cjpeg = tools.cjpeg, let djpeg = tools.djpeg else {
-            // 降级到系统 API
-            return try await compressJPEGWithSystemAPI(input: input, output: output, quality: quality)
+            throw CompressionError.toolNotFound("mozjpeg (cjpeg/djpeg)")
         }
         
         let tempOutput = output == input ?
             FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg") : output
         
         // 使用管道: djpeg (解码) -> cjpeg (重新编码)
-        do {
-            try runJPEGPipeline(
-                djpeg: djpeg,
-                cjpeg: cjpeg,
-                input: input,
-                output: tempOutput,
-                quality: quality.jpegQuality
-            )
-        } catch {
-            // mozjpeg 失败，降级到系统 API
-            return try await compressJPEGWithSystemAPI(input: input, output: output, quality: quality)
-        }
+        try runJPEGPipeline(
+            djpeg: djpeg,
+            cjpeg: cjpeg,
+            input: input,
+            output: tempOutput,
+            quality: quality.jpegQuality
+        )
         
         if output == input {
             try FileManager.default.removeItem(at: output)
