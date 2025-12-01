@@ -84,6 +84,35 @@ jobs:
           cp /opt/homebrew/bin/oxipng "$APP_DIR/Contents/Resources/bin/" 2>/dev/null || \
           cp /usr/local/bin/oxipng "$APP_DIR/Contents/Resources/bin/" || true
           
+          # Copy mozjpeg dependencies and fix paths
+          mkdir -p "$APP_DIR/Contents/Frameworks"
+          
+          # Copy libjpeg from mozjpeg
+          MOZJPEG_LIB=$(dirname $(which cjpeg 2>/dev/null || echo "/opt/homebrew/opt/mozjpeg/bin/cjpeg"))/../lib
+          if [ -f "$MOZJPEG_LIB/libjpeg.62.dylib" ]; then
+            cp "$MOZJPEG_LIB/libjpeg.62.dylib" "$APP_DIR/Contents/Frameworks/"
+          elif [ -f "/opt/homebrew/opt/mozjpeg/lib/libjpeg.62.dylib" ]; then
+            cp "/opt/homebrew/opt/mozjpeg/lib/libjpeg.62.dylib" "$APP_DIR/Contents/Frameworks/"
+          elif [ -f "/usr/local/opt/mozjpeg/lib/libjpeg.62.dylib" ]; then
+            cp "/usr/local/opt/mozjpeg/lib/libjpeg.62.dylib" "$APP_DIR/Contents/Frameworks/"
+          fi
+          
+          # Copy libpng
+          if [ -f "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib" ]; then
+            cp "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib" "$APP_DIR/Contents/Frameworks/"
+          elif [ -f "/usr/local/opt/libpng/lib/libpng16.16.dylib" ]; then
+            cp "/usr/local/opt/libpng/lib/libpng16.16.dylib" "$APP_DIR/Contents/Frameworks/"
+          fi
+          
+          # Fix library paths for cjpeg and djpeg
+          for tool in cjpeg djpeg; do
+            if [ -f "$APP_DIR/Contents/Resources/bin/$tool" ]; then
+              install_name_tool -change "@rpath/libjpeg.62.dylib" "@executable_path/../Frameworks/libjpeg.62.dylib" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
+              install_name_tool -change "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib" "@executable_path/../Frameworks/libpng16.16.dylib" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
+              install_name_tool -change "/usr/local/opt/libpng/lib/libpng16.16.dylib" "@executable_path/../Frameworks/libpng16.16.dylib" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
+            fi
+          done
+          
           # Create Info.plist
           cat > "$APP_DIR/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
