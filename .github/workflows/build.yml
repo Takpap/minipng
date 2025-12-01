@@ -128,6 +128,9 @@ jobs:
           # Set permissions
           chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
           chmod +x "$APP_DIR/Contents/Resources/bin/"* 2>/dev/null || true
+          
+          # Ad-hoc code signing (allows "Open Anyway" option)
+          codesign --force --deep --sign - "$APP_DIR"
 
       - name: Create DMG
         env:
