@@ -129,36 +129,49 @@ class CompressionViewModel: ObservableObject {
         isCompressing = true
         
         Task {
-            // 收集需要压缩的图片索引
-            var pendingIndices: [Int] = []
+            // 收集需要压缩的图片信息
+            var pendingTasks: [(index: Int, item: ImageItem, outputURL: URL)] = []
             for i in images.indices {
                 if case .completed = images[i].status { continue }
                 images[i].status = .pending
-                pendingIndices.append(i)
+                let item = images[i]
+                let outputURL = getOutputURL(for: item)
+                pendingTasks.append((i, item, outputURL))
             }
             
-            // 使用信号量控制并发数
+            let currentQuality = quality
+            
+            // 并发压缩，限制并发数
             await withTaskGroup(of: (Int, Result<(Int64, URL), Error>).self) { group in
+                var taskIterator = pendingTasks.makeIterator()
                 var runningCount = 0
-                var indexIterator = pendingIndices.makeIterator()
                 
-                // 启动初始批次
-                while runningCount < maxConcurrency, let index = indexIterator.next() {
-                    runningCount += 1
-                    images[index].status = .compressing
-                    let item = images[index]
-                    let outputURL = getOutputURL(for: item)
-                    let currentQuality = quality
-                    
-                    group.addTask {
+                // 辅助函数：添加任务
+                func addNextTask() -> Bool {
+                    guard let task = taskIterator.next() else { return false }
+                    let (index, item, outputURL) = task
+                    group.addTask { [compressionService] in
                         do {
-                            let size = try await self.compressImage(item: item, output: outputURL, quality: currentQuality)
+                            let size = try await compressionService.compress(item: item, output: outputURL, quality: currentQuality)
                             return (index, .success((size, outputURL)))
                         } catch {
                             return (index, .failure(error))
                         }
                     }
+                    return true
                 }
+                
+                // 启动初始批次
+                while runningCount < maxConcurrency, addNextTask() {
+                    runningCount += 1
+                }
+                
+                // 标记初始批次为压缩中
+                for i in 0..<min(maxConcurrency, pendingTasks.count) {
+                    images[pendingTasks[i].index].status = .compressing
+                }
+                
+                var nextToStart = maxConcurrency
                 
                 // 处理结果并启动新任务
                 for await (index, result) in group {
@@ -172,20 +185,19 @@ class CompressionViewModel: ObservableObject {
                     }
                     
                     // 启动下一个任务
-                    if let nextIndex = indexIterator.next() {
-                        images[nextIndex].status = .compressing
-                        let item = images[nextIndex]
-                        let outputURL = getOutputURL(for: item)
-                        let currentQuality = quality
-                        
-                        group.addTask {
+                    if nextToStart < pendingTasks.count {
+                        let nextTask = pendingTasks[nextToStart]
+                        images[nextTask.index].status = .compressing
+                        let (nextIndex, nextItem, nextOutputURL) = nextTask
+                        group.addTask { [compressionService] in
                             do {
-                                let size = try await self.compressImage(item: item, output: outputURL, quality: currentQuality)
-                                return (nextIndex, .success((size, outputURL)))
+                                let size = try await compressionService.compress(item: nextItem, output: nextOutputURL, quality: currentQuality)
+                                return (nextIndex, .success((size, nextOutputURL)))
                             } catch {
                                 return (nextIndex, .failure(error))
                             }
                         }
+                        nextToStart += 1
                     }
                 }
             }
@@ -214,21 +226,6 @@ class CompressionViewModel: ObservableObject {
         NSSound(named: .init("Glass"))?.play()
     }
     
-    /// 压缩单张图片
-    private func compressImage(item: ImageItem, output: URL, quality: CompressionService.Quality) async throws -> Int64 {
-        switch item.imageType {
-        case .png:
-            return try await compressionService.compressPNG(input: item.url, output: output, quality: quality)
-        case .jpeg:
-            return try await compressionService.compressJPEG(input: item.url, output: output, quality: quality)
-        case .webp:
-            return try await compressionService.compressWebP(input: item.url, output: output, quality: quality)
-        case .gif:
-            return try await compressionService.compressGIF(input: item.url, output: output, quality: quality)
-        case .unknown:
-            throw CompressionError.unsupportedFormat
-        }
-    }
     
     /// 获取输出文件路径
     private func getOutputURL(for item: ImageItem) -> URL {

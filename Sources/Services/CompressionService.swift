@@ -98,6 +98,24 @@ actor CompressionService {
         return nil
     }
     
+    // MARK: - 统一压缩接口
+    
+    /// 根据图片类型压缩
+    func compress(item: ImageItem, output: URL, quality: Quality) async throws -> Int64 {
+        switch item.imageType {
+        case .png:
+            return try await compressPNG(input: item.url, output: output, quality: quality)
+        case .jpeg:
+            return try await compressJPEG(input: item.url, output: output, quality: quality)
+        case .webp:
+            return try await compressWebP(input: item.url, output: output, quality: quality)
+        case .gif:
+            return try await compressGIF(input: item.url, output: output, quality: quality)
+        case .unknown:
+            throw CompressionError.unsupportedFormat
+        }
+    }
+    
     // MARK: - PNG 压缩
     
     /// 压缩 PNG (pngquant 有损 + oxipng 无损优化)
