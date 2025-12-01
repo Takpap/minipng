@@ -205,20 +205,39 @@ actor CompressionService {
         djpegProcess.standardOutput = pipe
         cjpegProcess.standardInput = pipe
         
-        let errorPipe = Pipe()
-        cjpegProcess.standardError = errorPipe
-        djpegProcess.standardError = FileHandle.nullDevice
+        let djpegErrorPipe = Pipe()
+        let cjpegErrorPipe = Pipe()
+        djpegProcess.standardError = djpegErrorPipe
+        cjpegProcess.standardError = cjpegErrorPipe
         
-        try djpegProcess.run()
-        try cjpegProcess.run()
+        do {
+            try djpegProcess.run()
+        } catch {
+            throw CompressionError.processFailed("无法启动 djpeg: \(error.localizedDescription), 路径: \(djpeg.path)")
+        }
+        
+        do {
+            try cjpegProcess.run()
+        } catch {
+            djpegProcess.terminate()
+            throw CompressionError.processFailed("无法启动 cjpeg: \(error.localizedDescription), 路径: \(cjpeg.path)")
+        }
         
         djpegProcess.waitUntilExit()
         cjpegProcess.waitUntilExit()
         
+        // 检查 djpeg 错误
+        if djpegProcess.terminationStatus != 0 {
+            let errorData = djpegErrorPipe.fileHandleForReading.readDataToEndOfFile()
+            let errorMessage = String(data: errorData, encoding: .utf8) ?? "djpeg 解码失败"
+            throw CompressionError.processFailed("djpeg 错误 (\(djpegProcess.terminationStatus)): \(errorMessage)")
+        }
+        
+        // 检查 cjpeg 错误
         if cjpegProcess.terminationStatus != 0 {
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let errorMessage = String(data: errorData, encoding: .utf8) ?? "JPEG 压缩失败"
-            throw CompressionError.processFailed(errorMessage)
+            let errorData = cjpegErrorPipe.fileHandleForReading.readDataToEndOfFile()
+            let errorMessage = String(data: errorData, encoding: .utf8) ?? "cjpeg 编码失败"
+            throw CompressionError.processFailed("cjpeg 错误 (\(cjpegProcess.terminationStatus)): \(errorMessage)")
         }
     }
     

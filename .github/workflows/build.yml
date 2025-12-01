@@ -176,8 +176,21 @@ jobs:
           # Set permissions
           chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
           chmod +x "$APP_DIR/Contents/Resources/bin/"* 2>/dev/null || true
+          chmod +r "$APP_DIR/Contents/Frameworks/"* 2>/dev/null || true
+          
+          # Remove quarantine attributes
+          xattr -cr "$APP_DIR" 2>/dev/null || true
           
           # Ad-hoc code signing (allows "Open Anyway" option)
+          codesign --force --deep --sign - "$APP_DIR"
+          
+          # Sign individual components
+          codesign --force --sign - "$APP_DIR/Contents/Frameworks/libjpeg.62.dylib" 2>/dev/null || true
+          codesign --force --sign - "$APP_DIR/Contents/Frameworks/libpng16.16.dylib" 2>/dev/null || true
+          codesign --force --sign - "$APP_DIR/Contents/Resources/bin/cjpeg" 2>/dev/null || true
+          codesign --force --sign - "$APP_DIR/Contents/Resources/bin/djpeg" 2>/dev/null || true
+          
+          # Re-sign the whole app
           codesign --force --deep --sign - "$APP_DIR"
 
       - name: Create DMG
