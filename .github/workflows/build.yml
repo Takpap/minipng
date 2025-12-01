@@ -104,21 +104,34 @@ jobs:
             cp "/usr/local/opt/libpng/lib/libpng16.16.dylib" "$APP_DIR/Contents/Frameworks/"
           fi
           
+          # Fix dylib install names
+          if [ -f "$APP_DIR/Contents/Frameworks/libjpeg.62.dylib" ]; then
+            install_name_tool -id "@rpath/libjpeg.62.dylib" "$APP_DIR/Contents/Frameworks/libjpeg.62.dylib"
+          fi
+          if [ -f "$APP_DIR/Contents/Frameworks/libpng16.16.dylib" ]; then
+            install_name_tool -id "@rpath/libpng16.16.dylib" "$APP_DIR/Contents/Frameworks/libpng16.16.dylib"
+          fi
+          
           # Fix library paths for cjpeg and djpeg
           # Use @loader_path since tools are in Resources/bin, not MacOS
           for tool in cjpeg djpeg; do
             if [ -f "$APP_DIR/Contents/Resources/bin/$tool" ]; then
               # @loader_path is the directory containing the binary (Resources/bin)
               # So ../../Frameworks goes to Contents/Frameworks
+              install_name_tool -add_rpath "@loader_path/../../Frameworks" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
               install_name_tool -change "@rpath/libjpeg.62.dylib" "@loader_path/../../Frameworks/libjpeg.62.dylib" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
+              install_name_tool -change "/opt/homebrew/opt/mozjpeg/lib/libjpeg.62.dylib" "@loader_path/../../Frameworks/libjpeg.62.dylib" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
+              install_name_tool -change "/usr/local/opt/mozjpeg/lib/libjpeg.62.dylib" "@loader_path/../../Frameworks/libjpeg.62.dylib" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
               install_name_tool -change "/opt/homebrew/opt/libpng/lib/libpng16.16.dylib" "@loader_path/../../Frameworks/libpng16.16.dylib" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
               install_name_tool -change "/usr/local/opt/libpng/lib/libpng16.16.dylib" "@loader_path/../../Frameworks/libpng16.16.dylib" "$APP_DIR/Contents/Resources/bin/$tool" 2>/dev/null || true
             fi
           done
           
           # Verify tools have correct dependencies
-          echo "Checking cjpeg dependencies:"
+          echo "=== Checking cjpeg dependencies ==="
           otool -L "$APP_DIR/Contents/Resources/bin/cjpeg" 2>/dev/null || true
+          echo "=== Checking Frameworks ==="
+          ls -la "$APP_DIR/Contents/Frameworks/" 2>/dev/null || true
           
           # Create Info.plist
           cat > "$APP_DIR/Contents/Info.plist" << EOF
