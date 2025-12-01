@@ -29,10 +29,11 @@ Download the DMG file for your architecture from the [Releases](../../releases) 
 - `MiniPNG-x.x.x-arm64.dmg` - Apple Silicon (M1/M2/M3)
 - `MiniPNG-x.x.x-x86_64.dmg` - Intel
 
-> **Note**: If macOS shows "app is damaged", run this command in Terminal:
-> ```bash
-> xattr -cr /Applications/MiniPNG.app
-> ```
+> **Note**: If macOS shows "app is damaged" or "cannot be opened":
+> 1. Right-click the app and select **"Open"**
+> 2. Click **"Open"** again in the dialog
+> 
+> This only needs to be done once.
 
 ### Build from Source
 ```bash
