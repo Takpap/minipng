@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "MiniPNG",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v12)
     ],
     products: [
         .executable(name: "MiniPNG", targets: ["MiniPNG"])

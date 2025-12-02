@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:minipng}",
+            "name": "Debug MiniPNG",
+            "program": "${workspaceFolder:minipng}/.build/debug/MiniPNG",
+            "preLaunchTask": "swift: Build Debug MiniPNG"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:minipng}",
+            "name": "Release MiniPNG",
+            "program": "${workspaceFolder:minipng}/.build/release/MiniPNG",
+            "preLaunchTask": "swift: Build Release MiniPNG"
+        }
+    ]
+}

@@ -59,7 +59,7 @@ swift build -c release
 
 ## System Requirements
 
-- macOS 13.0 or later
+- macOS 12.0 or later
 - Apple Silicon or Intel processor
 
 ## License
