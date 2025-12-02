@@ -12,7 +12,6 @@ struct MiniPNGApp: App {
             ContentView(viewModel: viewModel)
         }
         .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentMinSize)
         .commands {
             // 文件菜单
             CommandGroup(replacing: .newItem) {
@@ -98,6 +97,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 }
+
 
 /// 通知管理
 class NotificationManager {
